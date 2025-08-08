@@ -1,10 +1,11 @@
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { animate } from "motion";
 
 function Loader() {
   const waveRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (!waveRef.current) return;
     animate(
       waveRef.current,
       { rotate: 360 },

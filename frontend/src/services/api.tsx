@@ -71,6 +71,7 @@ export const api = {
       location: e.location || "TBA",
       totalSeats: e.totalSeats ?? 0,
       bookedSeats: Array.isArray(e.bookedSeats) ? e.bookedSeats : [],
+      imageUrl: e.imageUrl || "",
     }));
   },
 

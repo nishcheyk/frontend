@@ -1,4 +1,3 @@
-// components/FullHouseRibbon.tsx
 import React from "react";
 
 interface RibbonProps {
@@ -15,7 +14,7 @@ export const FullHouseRibbon: React.FC<RibbonProps> = ({
       style={{
         position: "absolute",
         top: "30px",
-        right: "-30px",
+        right: "-40px",
         transform: "rotate(45deg)",
         background: bgColor,
         color: "#fff",

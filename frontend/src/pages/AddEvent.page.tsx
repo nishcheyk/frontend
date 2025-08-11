@@ -1,5 +1,4 @@
-// pages/AddEvent.page.tsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "../store/AuthContext";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -12,9 +11,9 @@ const AddEventPage: React.FC = () => {
 
   if (!user?.isAdmin) {
     return (
-      <div
-        style={{ textAlign: "center", padding: "3rem", color: "#ff4d4d" }}
-      ></div>
+      <div style={{ textAlign: "center", padding: "3rem", color: "#ff4d4d" }}>
+        You are not authorized to access this page.
+      </div>
     );
   }
 
@@ -22,10 +21,35 @@ const AddEventPage: React.FC = () => {
     title: "",
     description: "",
     date: "",
+    location: "",
     totalSeats: 100,
+    imageUrl: "",
   });
 
+  const [locationQuery, setLocationQuery] = useState("");
+  const [locationSuggestions, setLocationSuggestions] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // Fetch location suggestions from Nominatim
+  useEffect(() => {
+    const fetchSuggestions = async () => {
+      if (locationQuery.length < 3) {
+        setLocationSuggestions([]);
+        return;
+      }
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(locationQuery)}&addressdetails=1&limit=5`
+        );
+        const data = await res.json();
+        setLocationSuggestions(data.map((item: any) => item.display_name));
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    const delayDebounce = setTimeout(fetchSuggestions, 300); // debounce input
+    return () => clearTimeout(delayDebounce);
+  }, [locationQuery]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -41,9 +65,14 @@ const AddEventPage: React.FC = () => {
       return;
     }
 
+    if (!form.title || !form.description || !form.date || !form.location) {
+      toast.error("Please fill in all required fields.");
+      return;
+    }
+
     try {
       setLoading(true);
-      await api.addEvent(token, form); // ✅ send token first
+      await api.addEvent(token, form);
       toast.success("🎉 Event created successfully!");
       navigate("/events");
     } catch (err: any) {
@@ -80,36 +109,16 @@ const AddEventPage: React.FC = () => {
             "0 0 5px rgba(255,120,78,0.4), 0 0 15px rgba(255,120,78,0.2)",
         }}
       >
-        <div
-          style={{
-            marginBottom: "1rem",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            borderBottom: "1px solid rgba(255,255,255,0.1)",
-            paddingBottom: "0.5rem",
-          }}
-        >
-          <h2 style={{ margin: 0, color: "#ff784e" }}>Add New Event</h2>
-          <span
-            style={{
-              background: "linear-gradient(135deg, #ff4d4d, #cc0000)",
-              padding: "2px 8px",
-              borderRadius: "6px",
-              fontSize: "0.75rem",
-              fontWeight: 600,
-            }}
-          >
-            ADMIN
-          </span>
-        </div>
+        <h2 style={{ color: "#ff784e", marginBottom: "1rem" }}>
+          Add New Event
+        </h2>
 
         <form
           onSubmit={handleSubmit}
           style={{
             display: "flex",
             flexDirection: "column",
-            gap: "1.2rem",
+            gap: "1rem",
           }}
         >
           <input
@@ -137,6 +146,52 @@ const AddEventPage: React.FC = () => {
             required
             style={inputStyle}
           />
+
+          {/* Location search field */}
+          <div style={{ position: "relative" }}>
+            <input
+              type="text"
+              placeholder="Search location"
+              value={locationQuery}
+              onChange={(e) => setLocationQuery(e.target.value)}
+              style={inputStyle}
+            />
+            {locationSuggestions.length > 0 && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "100%",
+                  left: 0,
+                  right: 0,
+                  background: "#222",
+                  border: "1px solid #555",
+                  borderRadius: "4px",
+                  maxHeight: "150px",
+                  overflowY: "auto",
+                  zIndex: 5,
+                }}
+              >
+                {locationSuggestions.map((suggestion, i) => (
+                  <div
+                    key={i}
+                    onClick={() => {
+                      setForm({ ...form, location: suggestion });
+                      setLocationQuery(suggestion);
+                      setLocationSuggestions([]);
+                    }}
+                    style={{
+                      padding: "8px",
+                      cursor: "pointer",
+                      borderBottom: "1px solid #444",
+                    }}
+                  >
+                    {suggestion}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <input
             type="number"
             name="totalSeats"
@@ -144,6 +199,14 @@ const AddEventPage: React.FC = () => {
             value={form.totalSeats}
             onChange={handleChange}
             required
+            style={inputStyle}
+          />
+          <input
+            type="text"
+            name="imageUrl"
+            placeholder="Image URL (optional)"
+            value={form.imageUrl}
+            onChange={handleChange}
             style={inputStyle}
           />
 
@@ -161,7 +224,6 @@ const AddEventPage: React.FC = () => {
               borderRadius: "8px",
               color: "#fff",
               fontWeight: 600,
-              letterSpacing: "0.5px",
               cursor: loading ? "not-allowed" : "pointer",
               fontSize: "1rem",
             }}
@@ -182,7 +244,6 @@ const inputStyle: React.CSSProperties = {
   color: "#fff",
   fontSize: "0.95rem",
   outline: "none",
-  transition: "border-color 0.2s ease, background 0.2s ease",
 };
 
 export default AddEventPage;

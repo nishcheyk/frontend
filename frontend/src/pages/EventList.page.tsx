@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { api } from "../services/api";
-import { EventListSkeleton } from "../components/skeleton/EventListSkeleton";
+import EventListSkeleton from "../components/skeleton/EventListSkeleton";
 import { Toaster } from "react-hot-toast";
 import { EventCard } from "../components/EventCard";
 

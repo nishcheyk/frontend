@@ -1,6 +1,6 @@
 import React from "react";
 
-export const EventListSkeleton: React.FC = () => {
+const EventListSkeleton: React.FC = () => {
   return (
     <div
       style={{
@@ -63,3 +63,5 @@ export const EventListSkeleton: React.FC = () => {
     </div>
   );
 };
+
+export default EventListSkeleton;

@@ -1,47 +1,8 @@
-import React, { useState } from "react";
+import React from "react";
 import { useNavigate } from "react-router-dom";
-
-/* ========================
-   Error Boundary Component
-   ======================== */
-class EventCardErrorBoundary extends React.Component<
-  { children: React.ReactNode },
-  { hasError: boolean }
-> {
-  constructor(props: any) {
-    super(props);
-    this.state = { hasError: false };
-  }
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-  componentDidCatch(error: any, errorInfo: any) {
-    console.error("EventCard Error:", error, errorInfo);
-  }
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div style={{ padding: "1rem", color: "red" }}>
-          ⚠ Something went wrong loading this event.
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
-
-/* ============
-   Skeleton UI
-   ============ */
-const SkeletonCard = () => (
-  <div className="card skeleton-card">
-    <div className="content"></div>
-  </div>
-);
-
-/* =================
-   Types & Constants
-   ================= */
+import ErrorBoundary from "../services/ErrorBoundary"; // Adjust import path accordingly
+import EventListSkeleton from "./skeleton/EventListSkeleton";
+import { FullHouseRibbon } from "./FullHouseRibbon";
 type Event = {
   id: string;
   name: string;
@@ -55,29 +16,8 @@ type Event = {
 
 const placeholderImages = [
   "https://imageevents.org.uk/wp-content/uploads/2016/02/event-management-placeholder.jpg",
+  // You can add more placeholders here
 ];
-
-/* =================--------
-   Small Badge Components
-   =================-------- */
-const FullHouseRibbon = ({ text }: { text: string }) => (
-  <div
-    style={{
-      position: "absolute",
-      top: "10px",
-      right: "-35px",
-      transform: "rotate(45deg)",
-      background: "linear-gradient(135deg, #ff4d4d, #cc0000)",
-      color: "#fff",
-      fontWeight: 700,
-      fontSize: "0.75rem",
-      padding: "4px 40px",
-      zIndex: 3,
-    }}
-  >
-    {text}
-  </div>
-);
 
 const SeatsLeftBadge = ({ seatsLeft }: { seatsLeft: number }) => (
   <div
@@ -98,37 +38,36 @@ const SeatsLeftBadge = ({ seatsLeft }: { seatsLeft: number }) => (
   </div>
 );
 
-/* =================
-   Main EventCard UI
-   ================= */
 export const EventCard: React.FC<{ ev?: Event; loading?: boolean }> = ({
   ev,
   loading,
 }) => {
   const nav = useNavigate();
 
-  if (loading) return <SkeletonCard />;
+  if (loading) return <EventListSkeleton />;
   if (!ev) return null;
 
   const seatsLeft = ev.totalSeats - (ev.bookedSeats?.length || 0);
   const isFullHouse = seatsLeft <= 0;
-
+  console.log(ev.imageUrl);
+  // Use event imageUrl if it exists and is non-empty, else fallback to a deterministic placeholder
   const imageUrl =
-    ev.imageUrl ??
-    placeholderImages[
-      ev.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0) %
-        placeholderImages.length
-    ];
+    ev.imageUrl && ev.imageUrl.trim().length > 0
+      ? ev.imageUrl
+      : placeholderImages[
+          ev.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0) %
+            placeholderImages.length
+        ];
 
   return (
     <>
-      {/* Embedded Styles */}
       <style>{`
         .card {
           overflow: visible;
           width: 220px;
           height: 280px;
           perspective: 1000px;
+          cursor: pointer;
         }
         .content {
           width: 100%;
@@ -200,22 +139,12 @@ export const EventCard: React.FC<{ ev?: Event; loading?: boolean }> = ({
           margin-top: 3px;
           font-size: 0.75rem;
         }
-        .skeleton-card {
-          background: linear-gradient(90deg, #222, #333, #222);
-          background-size: 200% 100%;
-          animation: shimmer 1.5s infinite;
-          border-radius: 8px;
-        }
-        @keyframes shimmer {
-          0% { background-position: -200% 0; }
-          100% { background-position: 200% 0; }
-        }
       `}</style>
 
       <div className="card" onClick={() => nav(`/events/${ev.id}`)}>
         <div className="content">
           {/* BACK SIDE */}
-          <div className="back">
+          <div className="back" aria-label={`Description of event ${ev.name}`}>
             <div>{ev.description || "No additional details available."}</div>
           </div>
 
@@ -230,9 +159,7 @@ export const EventCard: React.FC<{ ev?: Event; loading?: boolean }> = ({
               <small className="badge">{ev.location || "TBA"}</small>
               <div className="description">
                 <div className="title">
-                  <p className="title">
-                    <strong>{ev.name}</strong>
-                  </p>
+                  <strong>{ev.name}</strong>
                 </div>
                 <p className="card-footer">
                   {new Date(ev.date).toLocaleString()}
@@ -246,9 +173,11 @@ export const EventCard: React.FC<{ ev?: Event; loading?: boolean }> = ({
   );
 };
 
-/* Safe wrapper that catches errors */
-export const SafeEventCard = (props: { ev?: Event; loading?: boolean }) => (
-  <EventCardErrorBoundary>
+// Safe wrapper that catches errors using imported ErrorBoundary
+export const SafeEventCard: React.FC<{ ev?: Event; loading?: boolean }> = (
+  props
+) => (
+  <ErrorBoundary>
     <EventCard {...props} />
-  </EventCardErrorBoundary>
+  </ErrorBoundary>
 );

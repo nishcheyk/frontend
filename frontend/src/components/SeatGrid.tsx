@@ -39,15 +39,15 @@ export const SeatGrid: React.FC<SeatGridProps> = ({
             whileTap={!isBooked ? { scale: 0.95 } : {}}
             style={{
               width: "100%",
-              height: 40, // shorter than width for seat look
-              borderRadius: "10px 10px 4px 4px", // rounded top only
+              height: 40, 
+              borderRadius: "10px 10px 4px 4px", 
               border: "none",
               color: "#fff",
               backgroundColor: isBooked
-                ? "#333" // dark gray booked
+                ? "#333" 
                 : isSelected
-                  ? "#ff784e" // bright orange
-                  : "#00c853", // vivid green available
+                  ? "#ff784e" 
+                  : "#00c853", 
 
               cursor: isBooked ? "not-allowed" : "pointer",
               fontWeight: 600,

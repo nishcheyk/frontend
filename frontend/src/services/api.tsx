@@ -1,8 +1,7 @@
-// src/services/api.ts
 const API_BASE =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api";
 
-// Better types for user and booking
+// Types
 export type RegisterData = {
   name: string;
   email: string;
@@ -22,6 +21,24 @@ export type BookingData = {
   email: string;
 };
 
+export type EventType = {
+  id: string;
+  name: string;
+  title: string;
+  description: string;
+  date: string;
+  location?: string;
+  totalSeats: number;
+  bookedSeats: number[];
+};
+
+export type CreateEventData = {
+  title: string;
+  description: string;
+  date: string | Date;
+  totalSeats: number;
+};
+
 export const api = {
   // REGISTER
   register: (data: RegisterData) =>
@@ -39,14 +56,43 @@ export const api = {
       body: JSON.stringify(data),
     }).then((res) => res.json()),
 
-  // EVENT LIST
-  getEvents: () => fetch(`${API_BASE}/events`).then((res) => res.json()),
+  // EVENT LIST (normalized result)
+  getEvents: async (): Promise<EventType[]> => {
+    const res = await fetch(`${API_BASE}/events`);
+    if (!res.ok) throw new Error(`Failed to fetch events: ${res.status}`);
+    const data = await res.json();
+
+    return data.map((e: any) => ({
+      id: e._id ?? e.id,
+      name: e.title,
+      title: e.title,
+      description: e.description || "",
+      date: e.date,
+      location: e.location || "TBA",
+      totalSeats: e.totalSeats ?? 0,
+      bookedSeats: Array.isArray(e.bookedSeats) ? e.bookedSeats : [],
+    }));
+  },
 
   // SINGLE EVENT DETAILS
-  getEvent: (id: string) =>
-    fetch(`${API_BASE}/events/${id}`).then((res) => res.json()),
+  getEvent: async (id: string): Promise<EventType> => {
+    const res = await fetch(`${API_BASE}/events/${id}`);
+    if (!res.ok) throw new Error(`Failed to fetch event: ${res.status}`);
+    const e = await res.json();
 
-  // BOOK EVENT (now takes a nice typed bookingData object)
+    return {
+      id: e._id ?? e.id,
+      name: e.title,
+      title: e.title,
+      description: e.description || "",
+      date: e.date,
+      location: e.location || "TBA",
+      totalSeats: e.totalSeats ?? 0,
+      bookedSeats: Array.isArray(e.bookedSeats) ? e.bookedSeats : [],
+    };
+  },
+
+  // BOOK EVENT
   bookEvent: (token: string, bookingData: BookingData) =>
     fetch(`${API_BASE}/bookings`, {
       method: "POST",
@@ -67,4 +113,28 @@ export const api = {
       },
       body: JSON.stringify({ qr }),
     }).then((res) => res.json()),
+
+  // ✅ ADD EVENT (Admin Only)
+  addEvent: async (token: string, eventData: CreateEventData) => {
+    const res = await fetch(`${API_BASE}/events`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`, // Admin token
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(eventData),
+    });
+
+    if (!res.ok) {
+      // Try parsing JSON error message
+      let message = `Failed to add event: ${res.status}`;
+      try {
+        const errJson = await res.json();
+        if (errJson.message) message = errJson.message;
+      } catch {}
+      throw new Error(message);
+    }
+
+    return res.json();
+  },
 };

@@ -11,10 +11,12 @@ const ErrorFallback: React.FC<{ error: Error | null }> = ({ error }) => (
   </div>
 );
 
-export const ErrorBoundary: React.FC<{ children: React.ReactNode }> = ({
+const ErrorBoundary: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => (
   <ReactErrorBoundary FallbackComponent={ErrorFallback}>
     {children}
   </ReactErrorBoundary>
 );
+
+export default ErrorBoundary;

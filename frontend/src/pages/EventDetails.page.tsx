@@ -4,20 +4,21 @@ import toast, { Toaster } from "react-hot-toast";
 import { api } from "../services/api";
 import { useParams } from "react-router-dom";
 import { useAuth } from "../store/AuthContext";
-import { ErrorBoundary } from "../services/ErrorBoundary";
-import { EventDetailsSkeleton } from "../components/EventDetailsSkeleton";
+import ErrorBoundary from "../services/ErrorBoundary";
+import { EventDetailsSkeleton } from "../components/skeleton/EventDetailsSkeleton";
 import { EventHeader } from "../components/EventHeader";
 import { PhoneNumberField } from "../components/PhoneNumberField";
 import { SeatGrid } from "../components/SeatGrid";
 import { BookButton } from "../components/BookButton";
 
 type EventType = {
-  _id: string;
+  id: string;
   title: string;
   description: string;
   date: string;
   totalSeats: number;
   bookedSeats: number[];
+  imageUrl?: string;
 };
 
 export const EventDetails: React.FC = () => {
@@ -68,7 +69,11 @@ export const EventDetails: React.FC = () => {
       });
       if (!data.success) return toast.error(data.message || "Booking failed");
       toast.success("🎉 Booking successful!");
+
       const updatedEvent = await api.getEvent(id!);
+
+      console.log("Updated event after booking:", updatedEvent);
+
       setEvent(updatedEvent);
       setSelectedSeat(null);
       setPhone("");

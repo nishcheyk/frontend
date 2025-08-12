@@ -71,8 +71,10 @@ export const EventDetails: React.FC = () => {
         email: user.email,
         phone,
         seatNumber: selectedSeat,
+        seatCategory: currentCategory, // 👈 NEW FIELD: send category
         eventId: id!,
       });
+
       if (!data.success) return toast.error(data.message || "Booking failed");
 
       toast.success("🎉 Booking successful!");
@@ -85,7 +87,6 @@ export const EventDetails: React.FC = () => {
       toast.error(err.message || "Server error during booking.");
     }
   };
-
   if (loading) return <EventDetailsSkeleton />;
   if (error) return <div style={{ color: "red" }}>{error}</div>;
   if (!event) return <div>Event not found</div>;
@@ -176,7 +177,7 @@ export const EventDetails: React.FC = () => {
               {selectedSeat}
             </p>
             <PayPalScriptProvider
-              options={{ "client-id": "test", currency: "USD" }}
+              options={{ "client-id": "test", currency: "INR" }}
             >
               <PayPalButtons
                 style={{ layout: "vertical" }}

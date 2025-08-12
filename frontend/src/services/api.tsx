@@ -16,6 +16,7 @@ export type LoginData = {
 export type BookingData = {
   eventId: string;
   seatNumber: number;
+  seatCategory: "diamond" | "premium" | "silver";
   phone: string;
   userId: string;
   email: string;
@@ -52,6 +53,7 @@ export type UserBookedEvent = {
   location: string;
   imageUrl?: string;
   seatNumbers: number[];
+  seatCategories: ("diamond" | "premium" | "silver")[];
   qrCodes?: string[];
 };
 

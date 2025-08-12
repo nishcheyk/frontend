@@ -5,6 +5,7 @@ export type TicketCardProps = {
   eventDate: string;
   eventLocation: string;
   seatNumbers: number[];
+  seatCategories?: ("diamond" | "premium" | "silver")[];
   imageUrl?: string;
   qrCodes?: string[];
   ticketNo: string;
@@ -23,18 +24,29 @@ const friendlyMessages = [
   "Did you bring your dancing shoes? 💃🕺",
 ];
 
+// Color codes for seat categories
+const categoryColors: Record<
+  "diamond" | "premium" | "silver",
+  { background: string; text: string }
+> = {
+  diamond: { background: "#FFD700", text: "#333" }, // gold
+  premium: { background: "#4FACFE", text: "#fff" }, // blue
+  silver: { background: "#BDC3C7", text: "#222" }, // silver/gray
+};
+
 export const TicketCard: React.FC<TicketCardProps> = ({
   eventTitle,
   eventDate,
   eventLocation,
   seatNumbers,
+  seatCategories = [],
   imageUrl,
   qrCodes = [],
   ticketNo,
 }) => {
-  // Pick one random message per render
   const randomMessage =
     friendlyMessages[Math.floor(Math.random() * friendlyMessages.length)];
+
   const downloadQRCodes = () => {
     if (!qrCodes.length) return;
     qrCodes.forEach((qr, idx) => {
@@ -50,6 +62,23 @@ export const TicketCard: React.FC<TicketCardProps> = ({
   return (
     <>
       <style>{`
+      .download-btn {
+margin-top: 18px;
+padding: 8px 16px;
+font-size: 0.9rem;
+background: #a29b7c;
+color: white;
+border: none;
+border-radius: 8px;
+cursor: pointer;
+transition: background-color 0.3s ease;
+width: 100%;
+}
+
+
+.download-btn:hover {
+background-color: #8d8361;
+}
         .ticket {
           position: relative;
           display: flex;
@@ -75,12 +104,9 @@ export const TicketCard: React.FC<TicketCardProps> = ({
           border-radius: 0;
         }
 
-        /* Top-left corner cut */
-        .ticket::after {
-          content: "";
+        /* Reusable corner cut style */
+        .corner-cut {
           position: absolute;
-          top: -16px;
-          left: -16px;
           width: 42px;
           height: 42px;
           background: #211f1f;
@@ -88,44 +114,21 @@ export const TicketCard: React.FC<TicketCardProps> = ({
           box-shadow: 0 0 0 0px #fcf6e6;
           z-index: 10;
         }
-
-        /* Top-right corner cut */
+        .corner-top-left {
+          top: -16px;
+          left: -16px;
+        }
         .corner-top-right {
-          position: absolute;
           top: -16px;
           right: -16px;
-          width: 42px;
-          height: 42px;
-          background: #211f1f;
-          border-radius: 50%;
-          box-shadow: 0 0 0 0px #fcf6e6;
-          z-index: 10;
         }
-
-        /* Bottom-left corner cut */
         .corner-bottom-left {
-          position: absolute;
           bottom: -16px;
           left: -16px;
-          width: 42px;
-          height: 42px;
-          background: #211f1f;
-          border-radius: 50%;
-          box-shadow: 0 0 0 0px #fcf6e6;
-          z-index: 10;
         }
-
-        /* Bottom-right corner cut */
         .corner-bottom-right {
-          position: absolute;
           bottom: -16px;
           right: -16px;
-          width: 42px;
-          height: 42px;
-          background: #211f1f;
-          border-radius: 50%;
-          box-shadow: 0 0 0 0px #fcf6e6;
-          z-index: 10;
         }
 
         /* Left Panel */
@@ -138,6 +141,9 @@ export const TicketCard: React.FC<TicketCardProps> = ({
           color: #222;
           z-index: 1;
           border-radius: 0;
+          /* Important fix: prevent seat list truncation */
+          flex-wrap: wrap;
+          word-break: break-word;
         }
 
         .poster {
@@ -169,10 +175,24 @@ export const TicketCard: React.FC<TicketCardProps> = ({
           margin-top: 6px;
           font-size: 1rem;
           color: #444;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          max-width: 300px;
+          /* allow seats to wrap instead of truncating */
+          white-space: normal;
+          overflow: visible;
+          text-overflow: unset;
+          max-width: 100%;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+
+        .movie-seats span {
+          margin-left: 0;
+          /* add some spacing */
+          padding: 2px 8px;
+          border-radius: 6px;
+          font-weight: 600;
+          font-size: 0.9rem;
+          display: inline-block;
         }
 
         /* Right Panel */
@@ -184,21 +204,24 @@ export const TicketCard: React.FC<TicketCardProps> = ({
           flex-direction: column;
           align-items: center;
           justify-content: flex-start;
-          padding: 18px 15px;
+          padding: 28px 20px;
           border-radius: 0 0 0 0;
           z-index: 1;
         }
 
         .qr-block {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(85px, 1fr));
-          gap: 12px;
+          display: flex;
+          justify-content: flex-start;
+          gap: 20px; /* increased gap as padding between QR and text */
+          flex-wrap: wrap;
           width: 100%;
-          justify-items: center;
         }
 
         .qr-item {
-          text-align: center;
+          display: flex;
+          align-items: center; /* vertical center */
+          gap: 8px; /* spacing between QR and seat text */
+          text-align: left;
         }
 
         .qr-item img {
@@ -208,29 +231,20 @@ export const TicketCard: React.FC<TicketCardProps> = ({
           border-radius: 8px;
           background: white;
           box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+          flex-shrink: 0;
         }
-.download-btn {
-  margin-top: 18px;
-  padding: 8px 16px;
-  font-size: 0.9rem;
-  background: #a29b7c;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-  width: 100%;
-}
-
-.download-btn:hover {
-  background-color: #8d8361;
-}
 
         .qr-seat {
-          font-size: 0.85rem;
-          margin-top: 4px;
-          color: #333;
+          font-size: 0.95rem;
           font-weight: 600;
+          color: #333;
+          padding: 2px 12px;
+          border-radius: 6px;
+          background-color: #ddd; /* default bg if category missing */
+          user-select: none;
+          min-width: 98px;
+          text-align: center;
+          /* dynamically colored with JS in component */
         }
 
         /* Friendly message style */
@@ -264,7 +278,8 @@ export const TicketCard: React.FC<TicketCardProps> = ({
             flex-direction: column;
             max-width: 90%;
           }
-          .ticket-left, .ticket-right {
+          .ticket-left,
+          .ticket-right {
             padding: 15px;
           }
           .ticket-right {
@@ -272,10 +287,21 @@ export const TicketCard: React.FC<TicketCardProps> = ({
             border-top: 2px dashed #a29b7c;
             border-left: none;
           }
-          .movie-date, .movie-location, .movie-seats {
+          .movie-date,
+          .movie-location,
+          .movie-seats {
             max-width: 100%;
             white-space: normal;
+            overflow: visible;
+            text-overflow: unset;
           }
+          .qr-block {
+            justify-content: center;
+          }
+          .qr-item {
+            justify-content: center;
+          }
+            
         }
       `}</style>
 
@@ -285,12 +311,13 @@ export const TicketCard: React.FC<TicketCardProps> = ({
           backgroundImage: `url(${imageUrl || ""})`,
         }}
       >
-        {/* Corner cuts */}
-        <div className="corner-top-right"></div>
-        <div className="corner-bottom-left"></div>
-        <div className="corner-bottom-right"></div>
+        {/* Corner cuts - use single reusable class for all corners */}
+        <div className="corner-cut corner-top-left"></div>
+        <div className="corner-cut corner-top-right"></div>
+        <div className="corner-cut corner-bottom-left"></div>
+        <div className="corner-cut corner-bottom-right"></div>
 
-        {/* Left Side */}
+        {/* Left section */}
         <div className="ticket-left">
           {imageUrl && (
             <img src={imageUrl} alt={eventTitle} className="poster" />
@@ -302,31 +329,58 @@ export const TicketCard: React.FC<TicketCardProps> = ({
             </div>
             <div className="movie-location">{eventLocation}</div>
             <div className="movie-seats">
-              <strong>Seats:</strong> {seatNumbers.join(", ")}
+              <strong>Seats:</strong>
+              {seatNumbers.map((seatNum, idx) => {
+                const category = seatCategories[idx] || "silver"; // fallback
+                const colors = categoryColors[category];
+                return (
+                  <span
+                    key={`${seatNum}-${idx}`}
+                    style={{
+                      marginLeft: 8,
+                      backgroundColor: colors.background,
+                      color: colors.text,
+                      padding: "2px 8px",
+                      borderRadius: 6,
+                      fontWeight: 600,
+                      fontSize: "0.9rem",
+                      display: "inline-block",
+                    }}
+                    title={`Seat ${seatNum} - ${category.toUpperCase()}`}
+                  >
+                    {seatNum} ({category.toUpperCase()})
+                  </span>
+                );
+              })}
             </div>
           </div>
         </div>
 
-        {/* Right Side */}
+        {/* Right section */}
         <div className="ticket-right">
-          <div
-            className="qr-block"
-            style={{
-              display: "flex",
-              justifyContent: qrCodes.length > 0 ? "center" : "start",
-              gap: "12px",
-              flexWrap: "wrap",
-            }}
-          >
-            {qrCodes.map((qr, idx) => (
-              <div key={idx} className="qr-item">
-                <img src={qr} alt={`QR seat ${seatNumbers[idx]}`} />
-                <div className="qr-seat">Seat {seatNumbers[idx]}</div>
-              </div>
-            ))}
+          <div className="qr-block">
+            {qrCodes.map((qr, idx) => {
+              const seatNum = seatNumbers[idx];
+              const category = seatCategories[idx] || "silver"; // fallback
+              const colors = categoryColors[category];
+              return (
+                <div key={idx} className="qr-item">
+                  <img src={qr} alt={`QR seat ${seatNum}`} />
+                  <div
+                    className="qr-seat"
+                    style={{
+                      backgroundColor: colors.background,
+                      color: colors.text,
+                    }}
+                    title={`Seat ${seatNum} - ${category.toUpperCase()}`}
+                  >
+                    Seat {seatNum} ({category.toUpperCase()})
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
-          {/* Random friendly message */}
           <div className="friendly-message">{randomMessage}</div>
 
           <div className="ticket-number">

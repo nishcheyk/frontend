@@ -72,6 +72,19 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({
           >
             Validate Ticket
           </NavLink>
+          {token && (
+            <NavLink
+              to="/myticket"
+              style={({ isActive }) => ({
+                color: isActive ? "#ff784e" : "#fff",
+                textDecoration: "none",
+                fontWeight: 500,
+                transition: "color 0.2s ease",
+              })}
+            >
+              MyTicket
+            </NavLink>
+          )}
 
           {/* Only admins see Add Event */}
           {user?.isAdmin && (

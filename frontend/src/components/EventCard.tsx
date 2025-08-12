@@ -1,8 +1,9 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import ErrorBoundary from "../services/ErrorBoundary"; // Adjust import path accordingly
+import ErrorBoundary from "../services/ErrorBoundary";
 import EventListSkeleton from "./skeleton/EventListSkeleton";
 import { FullHouseRibbon } from "./FullHouseRibbon";
+
 type Event = {
   id: string;
   name: string;
@@ -16,7 +17,6 @@ type Event = {
 
 const placeholderImages = [
   "https://imageevents.org.uk/wp-content/uploads/2016/02/event-management-placeholder.jpg",
-  // You can add more placeholders here
 ];
 
 const SeatsLeftBadge = ({ seatsLeft }: { seatsLeft: number }) => (
@@ -49,8 +49,7 @@ export const EventCard: React.FC<{ ev?: Event; loading?: boolean }> = ({
 
   const seatsLeft = ev.totalSeats - (ev.bookedSeats?.length || 0);
   const isFullHouse = seatsLeft <= 0;
-  console.log(ev.imageUrl);
-  // Use event imageUrl if it exists and is non-empty, else fallback to a deterministic placeholder
+
   const imageUrl =
     ev.imageUrl && ev.imageUrl.trim().length > 0
       ? ev.imageUrl
@@ -86,7 +85,6 @@ export const EventCard: React.FC<{ ev?: Event; loading?: boolean }> = ({
           width: 100%;
           height: 100%;
           backface-visibility: hidden;
-          -webkit-backface-visibility: hidden;
           border-radius: 8px;
           overflow: hidden;
         }
@@ -103,6 +101,28 @@ export const EventCard: React.FC<{ ev?: Event; loading?: boolean }> = ({
           padding: 1rem;
           text-align: center;
           font-size: 0.9rem;
+          line-height: 1.4;
+          font-family: 'Inter', sans-serif;
+          color: #f5f5f5;
+          height: 100%;
+        
+        }
+        .back .card-details {
+          display: -webkit-box;
+          -webkit-line-clamp: 6;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          max-width: 90%;
+        }
+        .back .fade {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          height: 2rem;
+          background: linear-gradient(transparent, #151515);
+          pointer-events: none;
         }
         .img {
           position: absolute;
@@ -118,9 +138,14 @@ export const EventCard: React.FC<{ ev?: Event; loading?: boolean }> = ({
           background: linear-gradient(to top, rgba(0,0,0,0.8) 40%, rgba(0,0,0,0) 100%);
           display: flex;
           flex-direction: column;
-          gap: 8px;
+          gap: 6px;
         }
         .badge {
+          font-size: 0.75rem;
+          max-width: 90%;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
           background-color: rgba(0, 0, 0, 0.5);
           padding: 2px 8px;
           border-radius: 10px;
@@ -130,14 +155,22 @@ export const EventCard: React.FC<{ ev?: Event; loading?: boolean }> = ({
           background-color: rgba(0, 0, 0, 0.6);
           padding: 6px;
           border-radius: 5px;
+          width: 85%;
         }
         .title {
           font-size: 0.95rem;
+          font-weight: 600;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         .card-footer {
-          color: #ffffff88;
-          margin-top: 3px;
+          color: #ffffffcc;
+          margin-top: 2px;
           font-size: 0.75rem;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
       `}</style>
 
@@ -145,16 +178,17 @@ export const EventCard: React.FC<{ ev?: Event; loading?: boolean }> = ({
         <div className="content">
           {/* BACK SIDE */}
           <div className="back" aria-label={`Description of event ${ev.name}`}>
-            <div>{ev.description || "No additional details available."}</div>
+            <div className="card-details">
+              {ev.description || "No additional details available."}
+            </div>
+            <div className="fade" />
           </div>
 
           {/* FRONT SIDE */}
           <div className="front">
             <img className="img" src={imageUrl} alt={ev.name} />
-
             {isFullHouse && <FullHouseRibbon text="FULL HOUSE" />}
             {!isFullHouse && <SeatsLeftBadge seatsLeft={seatsLeft} />}
-
             <div className="front-content">
               <small className="badge">{ev.location || "TBA"}</small>
               <div className="description">
@@ -173,7 +207,6 @@ export const EventCard: React.FC<{ ev?: Event; loading?: boolean }> = ({
   );
 };
 
-// Safe wrapper that catches errors using imported ErrorBoundary
 export const SafeEventCard: React.FC<{ ev?: Event; loading?: boolean }> = (
   props
 ) => (

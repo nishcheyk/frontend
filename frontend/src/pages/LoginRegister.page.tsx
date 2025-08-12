@@ -23,8 +23,20 @@ export const LoginRegisterPage: React.FC = () => {
     }
 
     try {
+      let data;
+
       if (isLogin) {
-        const data = await api.login({ email, password });
+        data = await safeApiCall(() => api.login({ email, password }));
+      } else {
+        data = await safeApiCall(() => api.register({ name, email, password }));
+      }
+
+      if (!data) {
+        toast.error("Server returned an invalid response. Please try again.");
+        return;
+      }
+
+      if (isLogin) {
         if (data.token) {
           login(data.token, data.user);
           toast.success("Logged in successfully!");
@@ -33,10 +45,9 @@ export const LoginRegisterPage: React.FC = () => {
           toast.error(data.message || "Login failed");
         }
       } else {
-        const data = await api.register({ name, email, password });
-        if (data.success) {
+        if (data.success || data.token || data.user) {
           toast.success("Registration successful. Please login.");
-          setIsLogin(true);
+          setIsLogin(true); // ✅ switch form to login mode
           setName("");
           setEmail("");
           setPassword("");
@@ -46,9 +57,35 @@ export const LoginRegisterPage: React.FC = () => {
       }
     } catch (err: any) {
       console.error("Login/Register error:", err);
-      toast.error(err?.message || "An unexpected error occurred");
+
+      if (
+        typeof err?.message === "string" &&
+        (err.message.includes("Unexpected token") ||
+          err.message.includes("Invalid JSON"))
+      ) {
+        toast.error(
+          "Server returned an unexpected response (not JSON). Please try again later."
+        );
+      } else {
+        toast.error(err?.message || "An unexpected error occurred");
+      }
     }
   };
+
+  /**
+   * Wrapper to safely call an API function and avoid JSON parse crashes.
+   * If the API returns HTML or invalid JSON, it catches it and logs the raw output.
+   */
+  async function safeApiCall(apiFunc: () => Promise<any>) {
+    try {
+      const res = await apiFunc();
+      return res;
+    } catch (parseErr: any) {
+      // If fetch inside api.* threw an error before returning data
+      console.error("API returned an invalid or non-JSON response:", parseErr);
+      return null;
+    }
+  }
 
   return (
     <>

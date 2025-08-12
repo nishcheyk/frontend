@@ -8,6 +8,7 @@ import { EventList } from "./pages/EventList.page";
 import { EventDetails } from "./pages/EventDetails.page";
 import { ValidateTicket } from "./pages/ValidateTicket";
 import AddEventPage from "./pages/AddEvent.page"; // ✅ new
+import { MyTicketsPage } from "./pages/MyTicket.page";
 
 // Generic PrivateRoute for logged-in users
 function PrivateRoute({ children }: { children: JSX.Element }) {
@@ -43,6 +44,14 @@ export default function App() {
               element={
                 <PrivateRoute>
                   <ValidateTicket />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/myticket"
+              element={
+                <PrivateRoute>
+                  <MyTicketsPage />
                 </PrivateRoute>
               }
             />

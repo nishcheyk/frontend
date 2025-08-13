@@ -83,7 +83,6 @@ const TicketSkeleton = () => {
 export const MyTicketsPage: React.FC = () => {
   const { user, token } = useAuth();
 
-  // ✅ Use RTK Query only if user is logged in
   const { data, isLoading, isError } = useGetUserBookedEventsWithSeatsQuery(
     user?.id!,
     { skip: !user?.id }

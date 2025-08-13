@@ -31,6 +31,7 @@ export type CreateEventData = {
   date: string | Date;
   totalSeats: number;
   imageUrl?: string;
+  location: string;
 };
 
 // ===== BOOKINGS =====

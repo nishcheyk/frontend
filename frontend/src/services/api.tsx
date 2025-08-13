@@ -100,13 +100,9 @@ export const apiSlice = createApi({
     }),
     deleteBooking: builder.mutation<any, string>({
       query: (bookingId) => ({
-        url: `/admin/booking/${bookingId}`,
+        url: `/bookings/admin/booking/${bookingId}`, // includes /booking after /api
         method: "DELETE",
       }),
-      invalidatesTags: (_res, _err, id) => [
-        { type: "AdminBookings", id },
-        { type: "AdminBookings", id: "LIST" },
-      ],
     }),
   }),
 });

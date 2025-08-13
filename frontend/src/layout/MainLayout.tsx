@@ -99,6 +99,19 @@ export const MainLayout: React.FC = () => {
               Add Event
             </NavLink>
           )}
+          {user?.isAdmin && (
+            <NavLink
+              to="/tickets"
+              style={({ isActive }) => ({
+                color: isActive ? "#ff784e" : "#fff",
+                textDecoration: "none",
+                fontWeight: 500,
+                transition: "color 0.2s ease",
+              })}
+            >
+              All Tickets
+            </NavLink>
+          )}
         </div>
 
         {/* Right - Auth Buttons */}

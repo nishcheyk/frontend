@@ -1,21 +1,33 @@
 import React, { useState } from "react";
 import { useAuth } from "../store/AuthContext";
-import { api } from "../services/api";
+import { useRegisterMutation, useLoginMutation } from "../services/api"; // <-- your RTK Query slice
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 export const LoginRegisterPage: React.FC = () => {
-  const { login } = useAuth();
+  const { login: authLogin } = useAuth();
   const nav = useNavigate();
+
+  const [loginTrigger, loginResult] = useLoginMutation();
+  const [registerTrigger, registerResult] = useRegisterMutation();
 
   const [isLogin, setIsLogin] = useState(true);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  // Submit handler with toast notifications
+  async function safeApiCall<T>(apiFunc: () => Promise<T>) {
+    try {
+      const res = await apiFunc();
+      return res;
+    } catch (err: any) {
+      console.error("API error:", err);
+      return null;
+    }
+  }
+
   const handleSubmit = async () => {
     if (!email || !password || (!isLogin && !name)) {
       toast.error("Please fill all required fields");
@@ -26,9 +38,13 @@ export const LoginRegisterPage: React.FC = () => {
       let data;
 
       if (isLogin) {
-        data = await safeApiCall(() => api.login({ email, password }));
+        data = await safeApiCall(() =>
+          loginTrigger({ email, password }).unwrap()
+        );
       } else {
-        data = await safeApiCall(() => api.register({ name, email, password }));
+        data = await safeApiCall(() =>
+          registerTrigger({ name, email, password }).unwrap()
+        );
       }
 
       if (!data) {
@@ -38,7 +54,7 @@ export const LoginRegisterPage: React.FC = () => {
 
       if (isLogin) {
         if (data.token) {
-          login(data.token, data.user);
+          authLogin(data.token, data.user);
           toast.success("Logged in successfully!");
           nav("/events");
         } else {
@@ -47,7 +63,7 @@ export const LoginRegisterPage: React.FC = () => {
       } else {
         if (data.success || data.token || data.user) {
           toast.success("Registration successful. Please login.");
-          setIsLogin(true); // ✅ switch form to login mode
+          setIsLogin(true);
           setName("");
           setEmail("");
           setPassword("");
@@ -57,7 +73,6 @@ export const LoginRegisterPage: React.FC = () => {
       }
     } catch (err: any) {
       console.error("Login/Register error:", err);
-
       if (
         typeof err?.message === "string" &&
         (err.message.includes("Unexpected token") ||
@@ -71,21 +86,6 @@ export const LoginRegisterPage: React.FC = () => {
       }
     }
   };
-
-  /**
-   * Wrapper to safely call an API function and avoid JSON parse crashes.
-   * If the API returns HTML or invalid JSON, it catches it and logs the raw output.
-   */
-  async function safeApiCall(apiFunc: () => Promise<any>) {
-    try {
-      const res = await apiFunc();
-      return res;
-    } catch (parseErr: any) {
-      // If fetch inside api.* threw an error before returning data
-      console.error("API returned an invalid or non-JSON response:", parseErr);
-      return null;
-    }
-  }
 
   return (
     <>
@@ -103,7 +103,6 @@ export const LoginRegisterPage: React.FC = () => {
           display: flex;
           flex-direction: column;
         }
-        /* waves */
         .wave {
           position: absolute;
           width: 600px;
@@ -121,12 +120,7 @@ export const LoginRegisterPage: React.FC = () => {
         .wave:nth-child(3) { top: 210px; }
         .wave:nth-child(2) { animation-duration: 50s; }
         .wave:nth-child(3) { animation-duration: 45s; }
-        .playing .wave { animation-duration: 3s; }
-        .playing .wave:nth-child(2) { animation-duration: 4s; }
-        .playing .wave:nth-child(3) { animation-duration: 5s; }
-        @keyframes wave { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        
-        /* title */
+        @keyframes wave { 0%{ transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .infotop {
           text-align: center;
           font-size: 1.6rem;
@@ -138,14 +132,6 @@ export const LoginRegisterPage: React.FC = () => {
           font-weight: 600;
           z-index: 2;
         }
-        .name {
-          font-size: 1rem;
-          font-weight: 400;
-          position: relative;
-          top: 0.5em;
-          opacity: 0.9;
-        }
-        /* form */
         .form-container {
           flex: 1;
           display: flex;
@@ -156,9 +142,7 @@ export const LoginRegisterPage: React.FC = () => {
           max-width: 300px;
           padding: 1em 1.5em 2em;
           z-index: 3;
-          box-sizing: border-box;
           margin: 0 auto;
-          overflow-y: auto;
         }
         .form-container input,
         .form-container button {
@@ -166,7 +150,6 @@ export const LoginRegisterPage: React.FC = () => {
           border-radius: 6px;
           border: none;
           font-size: 15px;
-          box-sizing: border-box;
         }
         .form-container input {
           padding: 12px;
@@ -179,21 +162,13 @@ export const LoginRegisterPage: React.FC = () => {
           font-weight: 600;
           cursor: pointer;
         }
-        .form-container button:hover {
-          background: #0065d1;
-        }
+        .form-container button:hover { background: #0065d1; }
         .form-toggle {
           margin-top: 10px;
           font-size: 14px;
           color: #fff;
           text-align: center;
           cursor: pointer;
-        }
-        /* responsive */
-        @media (max-width: 480px) {
-          .e-card { max-width: 90%; min-height: 380px; }
-          .infotop { font-size: 1.3rem; top: 2em; }
-          .form-container { padding: 0.8em; }
         }
       `}</style>
 
@@ -202,99 +177,52 @@ export const LoginRegisterPage: React.FC = () => {
         initial={{ opacity: 0, scale: 0.85, y: 50 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ type: "spring", stiffness: 70, damping: 15 }}
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
       >
-        {/* waves */}
         <div className="wave"></div>
         <div className="wave"></div>
         <div className="wave"></div>
 
-        {/* title */}
-        <motion.div
-          className="infotop"
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-        >
+        <motion.div className="infotop">
           {isLogin ? "Login" : "Register"}
         </motion.div>
 
-        {/* form */}
-        <motion.div
-          className="form-container"
-          initial="hidden"
-          animate="visible"
-          variants={{
-            hidden: {},
-            visible: { transition: { staggerChildren: 0.15 } },
-          }}
-        >
+        <motion.div className="form-container">
           {!isLogin && (
-            <motion.input
-              variants={{
-                hidden: { opacity: 0, y: 20 },
-                visible: { opacity: 1, y: 0 },
-              }}
+            <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Full Name"
             />
           )}
-          <motion.input
-            variants={{
-              hidden: { opacity: 0, y: 20 },
-              visible: { opacity: 1, y: 0 },
-            }}
+          <input
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Email"
           />
-          <motion.input
+          <input
             type="password"
-            variants={{
-              hidden: { opacity: 0, y: 20 },
-              visible: { opacity: 1, y: 0 },
-            }}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Password"
           />
-          <motion.button
-            variants={{
-              hidden: { opacity: 0, y: 20 },
-              visible: { opacity: 1, y: 0 },
-            }}
-            onClick={handleSubmit}
-          >
-            {isLogin ? "Login" : "Register"}
-          </motion.button>
-          <motion.div
-            className="form-toggle"
-            onClick={() => setIsLogin(!isLogin)}
-            variants={{
-              hidden: { opacity: 0, y: 20 },
-              visible: { opacity: 1, y: 0 },
-            }}
-          >
+          <button onClick={handleSubmit}>
+            {isLogin
+              ? loginResult.isLoading
+                ? "Logging in..."
+                : "Login"
+              : registerResult.isLoading
+                ? "Registering..."
+                : "Register"}
+          </button>
+          <div className="form-toggle" onClick={() => setIsLogin(!isLogin)}>
             {isLogin
               ? "Don't have an account? Register here"
               : "Already have an account? Login here"}
-          </motion.div>
+          </div>
         </motion.div>
       </motion.div>
 
-      {/* toast container */}
-      <ToastContainer
-        position="top-right"
-        autoClose={4000}
-        hideProgressBar={false}
-        newestOnTop
-        closeOnClick
-        pauseOnHover
-        draggable
-        theme="dark"
-      />
+      <ToastContainer position="top-right" autoClose={4000} theme="dark" />
     </>
   );
 };

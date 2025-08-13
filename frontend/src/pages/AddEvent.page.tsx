@@ -2,36 +2,36 @@ import React, { useState, useEffect } from "react";
 import { useAuth } from "../store/AuthContext";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
-import { api } from "../services/api";
 import { motion } from "framer-motion";
+import { useAddEventMutation } from "../services/api";
+import type { CreateEventData } from "../services/api.types";
+
+interface NominatimResult {
+  display_name: string;
+}
 
 const AddEventPage: React.FC = () => {
   const { user, token } = useAuth();
   const navigate = useNavigate();
 
-  if (!user?.isAdmin) {
-    return (
-      <div style={{ textAlign: "center", padding: "3rem", color: "#ff4d4d" }}>
-        You are not authorized to access this page.
-      </div>
-    );
-  }
+  const [addEvent, { isLoading }] = useAddEventMutation();
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<CreateEventData>({
     title: "",
     description: "",
     date: "",
-    location: "",
     totalSeats: 100,
     imageUrl: "",
+    location: "",
   });
 
   const [locationQuery, setLocationQuery] = useState("");
   const [locationSuggestions, setLocationSuggestions] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
 
-  // Fetch location suggestions from Nominatim
+  // 🌍 Location autocomplete
   useEffect(() => {
+    let isMounted = true;
+
     const fetchSuggestions = async () => {
       if (locationQuery.length < 3) {
         setLocationSuggestions([]);
@@ -39,24 +39,51 @@ const AddEventPage: React.FC = () => {
       }
       try {
         const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(locationQuery)}&addressdetails=1&limit=5`
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+            locationQuery
+          )}&addressdetails=1&limit=5`,
+          {
+            headers: {
+              "User-Agent": "EventBookingApp/1.0 (admin@myapp.com)",
+            },
+          }
         );
-        const data = await res.json();
-        setLocationSuggestions(data.map((item: any) => item.display_name));
+
+        if (!res.ok) {
+          throw new Error(`Nominatim API error: ${res.status}`);
+        }
+
+        const data: NominatimResult[] = await res.json();
+        if (isMounted) {
+          setLocationSuggestions(data.map((item) => item.display_name));
+        }
       } catch (err) {
-        console.error(err);
+        if (isMounted) {
+          console.error("Failed to fetch location suggestions:", err);
+        }
       }
     };
-    const delayDebounce = setTimeout(fetchSuggestions, 300); // debounce input
-    return () => clearTimeout(delayDebounce);
+
+    // ✅ Fixed debounce timing: 300ms
+    const debounce = setTimeout(fetchSuggestions, 300);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(debounce);
+    };
   }, [locationQuery]);
 
+  // Form change handler
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
+  ) =>
+    setForm((prev) => ({
+      ...prev,
+      [e.target.name]:
+        e.target.type === "number" ? Number(e.target.value) : e.target.value,
+    }));
 
+  // Submit handler
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -71,17 +98,24 @@ const AddEventPage: React.FC = () => {
     }
 
     try {
-      setLoading(true);
-      await api.addEvent(token, form);
+      await addEvent(form).unwrap(); // ✅ RTK Query mutation trigger
       toast.success("🎉 Event created successfully!");
       navigate("/events");
     } catch (err: any) {
-      console.error(err);
-      toast.error(err.message || "Failed to create event");
-    } finally {
-      setLoading(false);
+      toast.error(
+        err?.data?.message || err.message || "Failed to create event."
+      );
     }
   };
+
+  // Restrict access to admins only
+  if (!user?.isAdmin) {
+    return (
+      <div style={{ textAlign: "center", padding: "3rem", color: "#ff4d4d" }}>
+        You are not authorized to access this page.
+      </div>
+    );
+  }
 
   return (
     <div
@@ -115,11 +149,7 @@ const AddEventPage: React.FC = () => {
 
         <form
           onSubmit={handleSubmit}
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "1rem",
-          }}
+          style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
         >
           <input
             type="text"
@@ -141,13 +171,13 @@ const AddEventPage: React.FC = () => {
           <input
             type="datetime-local"
             name="date"
-            value={form.date}
+            value={form.date as string}
             onChange={handleChange}
             required
             style={inputStyle}
           />
 
-          {/* Location search field */}
+          {/* Location search */}
           <div style={{ position: "relative" }}>
             <input
               type="text"
@@ -175,7 +205,7 @@ const AddEventPage: React.FC = () => {
                   <div
                     key={i}
                     onClick={() => {
-                      setForm({ ...form, location: suggestion });
+                      setForm((prev) => ({ ...prev, location: suggestion }));
                       setLocationQuery(suggestion);
                       setLocationSuggestions([]);
                     }}
@@ -211,24 +241,24 @@ const AddEventPage: React.FC = () => {
           />
 
           <motion.button
-            whileHover={{ scale: loading ? 1 : 1.03 }}
-            whileTap={{ scale: loading ? 1 : 0.97 }}
-            disabled={loading}
+            whileHover={{ scale: isLoading ? 1 : 1.03 }}
+            whileTap={{ scale: isLoading ? 1 : 0.97 }}
+            disabled={isLoading}
             type="submit"
             style={{
               padding: "10px 16px",
-              background: loading
+              background: isLoading
                 ? "linear-gradient(135deg, #555, #444)"
                 : "linear-gradient(135deg, #ff784e, #ff4d4d)",
               border: "none",
               borderRadius: "8px",
               color: "#fff",
               fontWeight: 600,
-              cursor: loading ? "not-allowed" : "pointer",
+              cursor: isLoading ? "not-allowed" : "pointer",
               fontSize: "1rem",
             }}
           >
-            {loading ? "Creating..." : "Create Event"}
+            {isLoading ? "Creating..." : "Create Event"}
           </motion.button>
         </form>
       </motion.div>

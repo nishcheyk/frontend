@@ -1,10 +1,8 @@
 import React from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useNavigate, Outlet } from "react-router-dom";
 import { useAuth } from "../store/AuthContext";
 
-export const MainLayout: React.FC<{ children: React.ReactNode }> = ({
-  children,
-}) => {
+export const MainLayout: React.FC = () => {
   const { token, user, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -72,6 +70,7 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({
           >
             Validate Ticket
           </NavLink>
+
           {token && (
             <NavLink
               to="/myticket"
@@ -149,7 +148,7 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({
       </nav>
 
       <main style={{ padding: "2rem", maxWidth: "1200px", margin: "0 auto" }}>
-        {children}
+        <Outlet />
       </main>
     </div>
   );

@@ -7,40 +7,43 @@ import "./App.css";
 import { EventList } from "./pages/EventList.page";
 import { EventDetails } from "./pages/EventDetails.page";
 import { ValidateTicket } from "./pages/ValidateTicket";
-import AddEventPage from "./pages/AddEvent.page"; // ✅ new
+import AddEventPage from "./pages/AddEvent.page";
 import { MyTicketsPage } from "./pages/MyTicket.page";
+import AdminTicketsPage from "./pages/AdminTicket.page";
 
-// Generic PrivateRoute for logged-in users
-function PrivateRoute({ children }: { children: JSX.Element }) {
+/** ===== Route Guards ===== **/
+const PrivateRoute = ({ children }: { children: JSX.Element }) => {
   const { token } = useAuth();
-  return token ? children : <Navigate to="/login" />;
-}
+  return token ? children : <Navigate to="/login" replace />;
+};
 
-// Admin-only route
-function AdminRoute({ children }: { children: JSX.Element }) {
+const AdminRoute = ({ children }: { children: JSX.Element }) => {
   const { token, user } = useAuth();
-  if (!token) return <Navigate to="/login" />;
-  if (!user?.isAdmin) return <Navigate to="/events" />;
+  if (!token) return <Navigate to="/login" replace />;
+  if (!user?.isAdmin) return <Navigate to="/events" replace />;
   return children;
-}
+};
 
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <MainLayout>
-          <Routes>
-            {/* Redirect root to events */}
-            <Route path="/" element={<Navigate to="/events" />} />
+        <Routes>
+          {/* Public route without layout */}
+          <Route path="/login" element={<LoginRegisterPage />} />
 
-            {/* Public routes */}
-            <Route path="/login" element={<LoginRegisterPage />} />
-            <Route path="/events" element={<EventList />} />
-            <Route path="/events/:id" element={<EventDetails />} />
+          {/* Routes with layout */}
+          <Route element={<MainLayout />}>
+            {/* redirect root */}
+            <Route index element={<Navigate to="events" replace />} />
 
-            {/* Protected routes */}
+            {/* Public */}
+            <Route path="events" element={<EventList />} />
+            <Route path="events/:id" element={<EventDetails />} />
+
+            {/* Private */}
             <Route
-              path="/validate"
+              path="validate"
               element={
                 <PrivateRoute>
                   <ValidateTicket />
@@ -48,7 +51,7 @@ export default function App() {
               }
             />
             <Route
-              path="/myticket"
+              path="myticket"
               element={
                 <PrivateRoute>
                   <MyTicketsPage />
@@ -56,23 +59,31 @@ export default function App() {
               }
             />
 
-            {/* Admin-only route */}
+            {/* Admin */}
             <Route
-              path="/add-event"
+              path="add-event"
               element={
                 <AdminRoute>
                   <AddEventPage />
                 </AdminRoute>
               }
             />
+            <Route
+              path="tickets"
+              element={
+                <AdminRoute>
+                  <AdminTicketsPage />
+                </AdminRoute>
+              }
+            />
 
-            {/* 404 Fallback (optional) */}
+            {/* 404 */}
             <Route
               path="*"
               element={<p style={{ padding: "2rem" }}>Page not found</p>}
             />
-          </Routes>
-        </MainLayout>
+          </Route>
+        </Routes>
       </BrowserRouter>
     </AuthProvider>
   );

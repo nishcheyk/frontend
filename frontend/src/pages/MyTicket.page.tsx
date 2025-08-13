@@ -1,9 +1,8 @@
-import React, { useEffect, useState } from "react";
-import { api } from "../services/api";
+import React from "react";
 import { useAuth } from "../store/AuthContext";
-import { TicketCard } from "../components/TicketCard"; // your updated ticket card
+import { TicketCard } from "../components/TicketCard";
+import { useGetUserBookedEventsWithSeatsQuery } from "../services/api";
 
-// 🦴 Modern Skeleton Loader
 const TicketSkeleton = () => {
   const shimmer = {
     background: "linear-gradient(90deg,#211f1f 75%)",
@@ -35,12 +34,7 @@ const TicketSkeleton = () => {
       justifyContent: "center",
       flex: 1,
     },
-    line: {
-      ...shimmer,
-      height: "16px",
-      borderRadius: "4px",
-      marginTop: "8px",
-    },
+    line: { ...shimmer, height: "16px", borderRadius: "4px", marginTop: "8px" },
     right: {
       flex: 1,
       display: "flex",
@@ -88,25 +82,12 @@ const TicketSkeleton = () => {
 
 export const MyTicketsPage: React.FC = () => {
   const { user, token } = useAuth();
-  const [tickets, setTickets] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!user?.id || !token) return;
-    const fetchTickets = async () => {
-      setLoading(true);
-      try {
-        const res = await api.getUserBookedEventsWithSeats(user.id, token);
-        setTickets(res.events ?? []);
-      } catch (err) {
-        console.error(err);
-        setTickets([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchTickets();
-  }, [user, token]);
+  // ✅ Use RTK Query only if user is logged in
+  const { data, isLoading, isError } = useGetUserBookedEventsWithSeatsQuery(
+    user?.id!,
+    { skip: !user?.id }
+  );
 
   if (!user || !token) {
     return <div>Please log in to view your tickets.</div>;
@@ -114,19 +95,19 @@ export const MyTicketsPage: React.FC = () => {
 
   return (
     <>
-      {/* Import modern fonts from Google Fonts */}
+      {/* Google Fonts import */}
       <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Merriweather:wght@400;700&display=swap"
         rel="stylesheet"
       />
       <div
         style={{
-          maxWidth: "880px",
+          maxWidth: 880,
           margin: "32px auto",
           fontFamily: "'Inter', sans-serif",
           backgroundColor: "#211f1f",
-          padding: "32px",
-          borderRadius: "20px",
+          padding: 32,
+          borderRadius: 20,
           boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
         }}
       >
@@ -134,25 +115,27 @@ export const MyTicketsPage: React.FC = () => {
           style={{
             fontFamily: "'Merriweather', serif",
             fontSize: "2rem",
-            marginBottom: "24px",
+            marginBottom: 24,
             color: "#f1774e",
           }}
         >
           My Tickets
         </h1>
 
-        {loading ? (
+        {isLoading ? (
           <>
             <TicketSkeleton />
             <TicketSkeleton />
             <TicketSkeleton />
           </>
-        ) : tickets.length === 0 ? (
+        ) : isError ? (
+          <div style={{ color: "#f1774e" }}>Failed to load tickets.</div>
+        ) : !data || data.events.length === 0 ? (
           <div style={{ fontSize: "1.1rem", color: "#f1774e" }}>
             You have no tickets booked.
           </div>
         ) : (
-          tickets.map((ticket, idx) => (
+          data.events.map((ticket, idx) => (
             <div
               key={ticket._id || idx}
               style={{
@@ -170,6 +153,7 @@ export const MyTicketsPage: React.FC = () => {
                 eventDate={ticket.date}
                 eventLocation={ticket.location}
                 seatNumbers={ticket.seatNumbers}
+                seatCategories={ticket.seatCategories}
                 imageUrl={ticket.imageUrl}
                 qrCodes={ticket.qrCodes}
                 ticketNo={ticket._id}

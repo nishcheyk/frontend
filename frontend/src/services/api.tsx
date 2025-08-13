@@ -1,196 +1,126 @@
+// src/services/apiSlice.ts
+import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import type {
+  RegisterData,
+  LoginData,
+  EventType,
+  CreateEventData,
+  BookingData,
+  GetUserBookedEventsResponse,
+  AdminBooking,
+} from "./api.types";
+
 const API_BASE =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api";
 
-// ===== TYPES =====
-export type RegisterData = {
-  name: string;
-  email: string;
-  password: string;
-};
-
-export type LoginData = {
-  email: string;
-  password: string;
-};
-
-export type BookingData = {
-  eventId: string;
-  seatNumber: number;
-  seatCategory: "diamond" | "premium" | "silver";
-  phone: string;
-  userId: string;
-  email: string;
-};
-
-export type EventType = {
-  id: string;
-  name: string;
-  title: string;
-  description: string;
-  date: string;
-  location?: string;
-  totalSeats: number;
-  bookedSeats: number[];
-  imageUrl?: string;
-};
-
-export type CreateEventData = {
-  title: string;
-  description: string;
-  date: string | Date;
-  totalSeats: number;
-  imageUrl?: string;
-};
-
-// Event object returned from "My Bookings"
-export type UserBookedEvent = {
-  _id: string;
-  title: string;
-  description: string;
-  date: string;
-  totalSeats: number;
-  bookedSeats: number[];
-  location: string;
-  imageUrl?: string;
-  seatNumbers: number[];
-  seatCategories: ("diamond" | "premium" | "silver")[];
-  qrCodes?: string[];
-};
-
-export type GetUserBookedEventsResponse = {
-  success: boolean;
-  count: number;
-  events: UserBookedEvent[];
-};
-
-// ===== API OBJECT =====
-export const api = {
-  // REGISTER
-  register: (data: RegisterData) =>
-    fetch(`${API_BASE}/users/register`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    }).then((res) => res.json()),
-
-  // LOGIN
-  login: (data: LoginData) =>
-    fetch(`${API_BASE}/users/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    }).then((res) => res.json()),
-
-  // EVENT LIST (normalized result)
-  getEvents: async (): Promise<EventType[]> => {
-    const res = await fetch(`${API_BASE}/events`);
-    if (!res.ok) throw new Error(`Failed to fetch events: ${res.status}`);
-    const data = await res.json();
-
-    return data.map((e: any) => ({
-      id: e._id ?? e.id,
-      name: e.title,
-      title: e.title,
-      description: e.description || "",
-      date: e.date,
-      location: e.location || "TBA",
-      totalSeats: e.totalSeats ?? 0,
-      bookedSeats: Array.isArray(e.bookedSeats) ? e.bookedSeats : [],
-      imageUrl: e.imageUrl || "",
-    }));
+// custom base query that reads the token from localStorage
+const baseQueryWithAuth = fetchBaseQuery({
+  baseUrl: API_BASE,
+  prepareHeaders: (headers) => {
+    const token = localStorage.getItem("token"); // always in sync with AuthContext
+    if (token) {
+      headers.set("Authorization", `Bearer ${token}`);
+    }
+    headers.set("Content-Type", "application/json");
+    return headers;
   },
+});
 
-  // SINGLE EVENT DETAILS
-  getEvent: async (id: string): Promise<EventType> => {
-    const res = await fetch(`${API_BASE}/events/${id}`);
-    if (!res.ok) throw new Error(`Failed to fetch event: ${res.status}`);
-    const e = await res.json();
-
-    return {
-      id: e._id ?? e.id,
-      name: e.title,
-      title: e.title,
-      description: e.description || "",
-      date: e.date,
-      location: e.location || "TBA",
-      totalSeats: e.totalSeats ?? 0,
-      bookedSeats: Array.isArray(e.bookedSeats) ? e.bookedSeats : [],
-      imageUrl: e.imageUrl || "",
-    };
-  },
-
-  // BOOK EVENT
-  bookEvent: (token: string, bookingData: BookingData) =>
-    fetch(`${API_BASE}/bookings`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(bookingData),
-    }).then((res) => res.json()),
-
-  // TICKET VALIDATION
-  validateTicket: (token: string, qrData: string) =>
-    fetch(`${API_BASE}/bookings/validate`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ qrData }),
-    }).then((res) => {
-      if (!res.ok) {
-        return res.json().then((err) => Promise.reject(err));
-      }
-      return res.json();
+export const apiSlice = createApi({
+  reducerPath: "apiSlice",
+  baseQuery: baseQueryWithAuth,
+  tagTypes: ["Events", "Bookings", "AdminBookings"],
+  endpoints: (builder) => ({
+    /** ===== Auth ===== */
+    register: builder.mutation<any, RegisterData>({
+      query: (body) => ({ url: "/users/register", method: "POST", body }),
+    }),
+    login: builder.mutation<any, LoginData>({
+      query: (body) => ({ url: "/users/login", method: "POST", body }),
     }),
 
-  // ADD EVENT (Admin)
-  addEvent: async (token: string, eventData: CreateEventData) => {
-    const res = await fetch(`${API_BASE}/events`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`, // Admin token
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(eventData),
-    });
+    /** ===== Events ===== */
+    getEvents: builder.query<EventType[], void>({
+      query: () => "/events",
+      providesTags: ["Events"],
+      transformResponse: (events: any[]) =>
+        events.map((e) => ({
+          id: e.id ?? e._id,
+          name: e.title,
+          title: e.title,
+          description: e.description || "",
+          date: e.date,
+          location: e.location || "TBA",
+          totalSeats: e.totalSeats ?? 0,
+          bookedSeats: Array.isArray(e.bookedSeats) ? e.bookedSeats : [],
+          imageUrl: e.imageUrl || "",
+        })),
+    }),
+    getEvent: builder.query<EventType, string>({
+      query: (id) => `/events/${id}`,
+      providesTags: (_res, _err, id) => [{ type: "Events", id }],
+    }),
+    addEvent: builder.mutation<any, CreateEventData>({
+      query: (body) => ({ url: "/events", method: "POST", body }),
+      invalidatesTags: ["Events"],
+    }),
 
-    if (!res.ok) {
-      let message = `Failed to add event: ${res.status}`;
-      try {
-        const errJson = await res.json();
-        if (errJson.message) message = errJson.message;
-      } catch {}
-      throw new Error(message);
-    }
+    /** ===== Bookings ===== */
+    bookEvent: builder.mutation<any, BookingData>({
+      query: (body) => ({ url: "/bookings", method: "POST", body }),
+      invalidatesTags: ["Bookings", "AdminBookings"],
+    }),
+    validateTicket: builder.mutation<any, { qrData: string }>({
+      query: (body) => ({ url: "/bookings/validate", method: "POST", body }),
+    }),
+    getUserBookedEventsWithSeats: builder.query<
+      GetUserBookedEventsResponse,
+      string
+    >({
+      query: (userId) => `/bookings/events-with-seats/user/${userId}`,
+      providesTags: ["Bookings"],
+    }),
 
-    return res.json();
-  },
+    /** ===== Admin ===== */
+    getAllBookingsWithUserAndEvent: builder.query<
+      { success: boolean; count: number; bookings: AdminBooking[] },
+      void
+    >({
+      query: () => "bookings/admin/all-tickets",
+      providesTags: (result) =>
+        result
+          ? [
+              ...result.bookings.map((b) => ({
+                type: "AdminBookings" as const,
+                id: b.bookingId,
+              })),
+              { type: "AdminBookings", id: "LIST" },
+            ]
+          : [{ type: "AdminBookings", id: "LIST" }],
+    }),
+    deleteBooking: builder.mutation<any, string>({
+      query: (bookingId) => ({
+        url: `/admin/booking/${bookingId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (_res, _err, id) => [
+        { type: "AdminBookings", id },
+        { type: "AdminBookings", id: "LIST" },
+      ],
+    }),
+  }),
+});
 
-  // GET USER'S BOOKED EVENTS + SEATS + QR CODES
-  getUserBookedEventsWithSeats: async (
-    userId: string,
-    token: string
-  ): Promise<GetUserBookedEventsResponse> => {
-    const res = await fetch(
-      `${API_BASE}/bookings/events-with-seats/user/${userId}`,
-      {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
-
-    if (!res.ok) {
-      throw new Error(
-        `Failed to fetch booked events with seats: ${res.status}`
-      );
-    }
-
-    return res.json();
-  },
-};
+// export hooks
+export const {
+  useRegisterMutation,
+  useLoginMutation,
+  useGetEventsQuery,
+  useGetEventQuery,
+  useAddEventMutation,
+  useBookEventMutation,
+  useValidateTicketMutation,
+  useGetUserBookedEventsWithSeatsQuery,
+  useGetAllBookingsWithUserAndEventQuery,
+  useDeleteBookingMutation,
+} = apiSlice;

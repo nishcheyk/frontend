@@ -19,7 +19,7 @@ export const FullHouseRibbon: React.FC<RibbonProps> = ({
         background: bgColor,
         color: "#fff",
         fontWeight: 700,
-        fontSize: "clamp(0.6rem, 2vw, 0.8rem)", // responsive font size
+        fontSize: "clamp(0.6rem, 2vw, 0.8rem)",
         padding: "4px clamp(30px, 8vw, 40px)",
         boxShadow: "0 2px 6px rgba(0,0,0,0.4)",
         zIndex: 2,

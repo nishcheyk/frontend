@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { motion } from "framer-motion";
 import toast, { Toaster } from "react-hot-toast";
-import { api } from "../services/api";
 import { useParams } from "react-router-dom";
 import { useAuth } from "../store/AuthContext";
 import ErrorBoundary from "../services/ErrorBoundary";
@@ -11,46 +10,67 @@ import { PhoneNumberField } from "../components/PhoneNumberField";
 import { SeatGrid } from "../components/SeatGrid";
 import { BookButton } from "../components/BookButton";
 import { PayPalButtons, PayPalScriptProvider } from "@paypal/react-paypal-js";
-
-type EventType = {
-  id: string;
-  title: string;
-  description: string;
-  date: string;
-  totalSeats: number;
-  bookedSeats: number[];
-  imageUrl?: string;
-};
+import { useGetEventQuery, useBookEventMutation } from "../services/api";
 
 export const EventDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { token, user } = useAuth();
 
-  const [event, setEvent] = useState<EventType | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [phone, setPhone] = useState<string>("");
+  const {
+    data: eventData,
+    isLoading,
+    isError,
+    refetch,
+  } = useGetEventQuery(id!, { skip: !id });
+
+  const [bookEvent, { isLoading: bookingLoading }] = useBookEventMutation();
+
+  const [phone, setPhone] = useState("");
   const [selectedSeat, setSelectedSeat] = useState<number | null>(null);
   const [showPayment, setShowPayment] = useState(false);
 
-  useEffect(() => {
-    if (!id) return;
-    const fetchEvent = async () => {
-      setLoading(true);
-      try {
-        const data = await api.getEvent(id);
-        setEvent(data?.message === "Event not found" ? null : data);
-      } catch {
-        setError("Failed to load event. Please try again later.");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchEvent();
-  }, [id]);
+  const totalSeats = eventData?.totalSeats ?? 0;
+  const diamondCount = Math.ceil(totalSeats * 0.1);
+  const premiumCount = Math.ceil(totalSeats * 0.3);
+
+  const categories = useMemo(
+    () => ({
+      diamond: { start: 1, end: diamondCount, label: "Diamond" },
+      premium: {
+        start: diamondCount + 1,
+        end: diamondCount + premiumCount,
+        label: "Premium",
+      },
+      silver: {
+        start: diamondCount + premiumCount + 1,
+        end: totalSeats,
+        label: "Silver",
+      },
+    }),
+    [diamondCount, premiumCount, totalSeats]
+  );
+
+  const categoryPrices = { diamond: 1000, premium: 700, silver: 400 };
+
+  const getSeatCategory = useCallback(
+    (seatNumber: number) => {
+      if (
+        seatNumber >= categories.diamond.start &&
+        seatNumber <= categories.diamond.end
+      )
+        return "diamond" as const;
+      if (
+        seatNumber >= categories.premium.start &&
+        seatNumber <= categories.premium.end
+      )
+        return "premium" as const;
+      return "silver" as const;
+    },
+    [categories]
+  );
 
   const handleSeatClick = (seatNumber: number) => {
-    if (event?.bookedSeats.includes(seatNumber)) return;
+    if (eventData?.bookedSeats.includes(seatNumber)) return;
     setSelectedSeat(seatNumber);
   };
 
@@ -63,23 +83,26 @@ export const EventDetails: React.FC = () => {
   };
 
   const confirmBooking = async () => {
-    if (!event || !selectedSeat || !user || !token) return;
+    if (!eventData || !selectedSeat || !user || !token) return;
 
+    const seatCategory = getSeatCategory(selectedSeat);
     try {
-      const data = await api.bookEvent(token, {
+      const result: any = await bookEvent({
         userId: user.id,
         email: user.email,
         phone,
         seatNumber: selectedSeat,
-        seatCategory: currentCategory, // 👈 NEW FIELD: send category
+        seatCategory,
         eventId: id!,
-      });
+      }).unwrap();
 
-      if (!data.success) return toast.error(data.message || "Booking failed");
+      if (!result?.success) {
+        toast.error(result?.message || "Booking failed");
+        return;
+      }
 
       toast.success("🎉 Booking successful!");
-      const updatedEvent = await api.getEvent(id!);
-      setEvent(updatedEvent);
+      refetch();
       setSelectedSeat(null);
       setPhone("");
       setShowPayment(false);
@@ -87,47 +110,13 @@ export const EventDetails: React.FC = () => {
       toast.error(err.message || "Server error during booking.");
     }
   };
-  if (loading) return <EventDetailsSkeleton />;
-  if (error) return <div style={{ color: "red" }}>{error}</div>;
-  if (!event) return <div>Event not found</div>;
-
-  const total = event.totalSeats;
-  const diamondCount = Math.ceil(total * 0.1);
-  const premiumCount = Math.ceil(total * 0.3);
-
-  const categories = {
-    diamond: { start: 1, end: diamondCount, label: "Diamond" },
-    premium: {
-      start: diamondCount + 1,
-      end: diamondCount + premiumCount,
-      label: "Premium",
-    },
-    silver: {
-      start: diamondCount + premiumCount + 1,
-      end: total,
-      label: "Silver",
-    },
-  };
-
-  // Category pricing
-  const categoryPrices = { diamond: 1000, premium: 700, silver: 400 };
-
-  const getSeatCategory = (seatNumber: number) => {
-    if (
-      seatNumber >= categories.diamond.start &&
-      seatNumber <= categories.diamond.end
-    )
-      return "diamond";
-    if (
-      seatNumber >= categories.premium.start &&
-      seatNumber <= categories.premium.end
-    )
-      return "premium";
-    return "silver";
-  };
 
   const currentCategory = selectedSeat ? getSeatCategory(selectedSeat) : null;
   const seatPrice = currentCategory ? categoryPrices[currentCategory] : 0;
+
+  if (isLoading) return <EventDetailsSkeleton />;
+  if (isError) return <div style={{ color: "red" }}>Failed to load event</div>;
+  if (!eventData) return <div>Event not found</div>;
 
   return (
     <ErrorBoundary>
@@ -147,10 +136,10 @@ export const EventDetails: React.FC = () => {
         }}
       >
         <EventHeader
-          title={event.title}
-          description={event.description}
-          date={new Date(event.date)}
-          imageUrl={event.imageUrl}
+          title={eventData.title}
+          description={eventData.description}
+          date={new Date(eventData.date)}
+          imageUrl={eventData.imageUrl}
         />
 
         <PhoneNumberField value={phone} onChange={setPhone} />
@@ -158,8 +147,8 @@ export const EventDetails: React.FC = () => {
         <h3 style={{ margin: "1rem 0", color: "#f5f5f5" }}>Select Your Seat</h3>
 
         <SeatGrid
-          totalSeats={event.totalSeats}
-          bookedSeats={event.bookedSeats}
+          totalSeats={eventData.totalSeats}
+          bookedSeats={eventData.bookedSeats}
           selectedSeat={selectedSeat}
           onSeatClick={handleSeatClick}
           categories={categories}
@@ -167,7 +156,7 @@ export const EventDetails: React.FC = () => {
 
         {!showPayment ? (
           <BookButton
-            disabled={!selectedSeat || !phone}
+            disabled={!selectedSeat || !phone || bookingLoading}
             onClick={handleShowPayment}
           />
         ) : (
@@ -177,21 +166,25 @@ export const EventDetails: React.FC = () => {
               {selectedSeat}
             </p>
             <PayPalScriptProvider
-              options={{ "client-id": "test", currency: "INR" }}
+              options={{ clientId: "test", currency: "USD" }}
             >
               <PayPalButtons
                 style={{ layout: "vertical" }}
-                createOrder={(data, actions) => {
-                  return actions.order.create({
+                createOrder={(_, actions) => {
+                  return actions.order!.create({
+                    intent: "CAPTURE",
                     purchase_units: [
                       {
-                        amount: { value: (seatPrice / 80).toFixed(2) }, // ₹ to USD approx
+                        amount: {
+                          currency_code: "USD",
+                          value: (seatPrice / 80).toFixed(2),
+                        },
                       },
                     ],
                   });
                 }}
-                onApprove={async (data, actions) => {
-                  await actions.order.capture();
+                onApprove={async (_, actions) => {
+                  await actions.order!.capture();
                   confirmBooking();
                 }}
                 onError={(err) => {
@@ -206,3 +199,5 @@ export const EventDetails: React.FC = () => {
     </ErrorBoundary>
   );
 };
+
+export default EventDetails;

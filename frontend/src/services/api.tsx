@@ -46,8 +46,8 @@ export const apiSlice = createApi({
       transformResponse: (events: any[]) =>
         events.map((e) => ({
           id: e.id ?? e._id,
-          name: e.title,
-          title: e.title,
+          name: e.title || "", // retain for compatibility, mapped from title
+          title: e.title || "",
           description: e.description || "",
           date: e.date,
           location: e.location || "TBA",
@@ -87,6 +87,17 @@ export const apiSlice = createApi({
       void
     >({
       query: () => "bookings/admin/all-tickets",
+      transformResponse: (res: any) => ({
+        ...res,
+        bookings: res.bookings.map((b: any) => ({
+          ...b,
+          seatNumbers: Array.isArray(b.seatNumbers) ? b.seatNumbers : [],
+          seatCategories: Array.isArray(b.seatCategories)
+            ? b.seatCategories
+            : [],
+          qrCodes: Array.isArray(b.qrCodes) ? b.qrCodes : [],
+        })),
+      }),
       providesTags: (result) =>
         result
           ? [
@@ -100,9 +111,10 @@ export const apiSlice = createApi({
     }),
     deleteBooking: builder.mutation<any, string>({
       query: (bookingId) => ({
-        url: `/bookings/admin/booking/${bookingId}`, // includes /booking after /api
+        url: `/bookings/admin/booking/${bookingId}`,
         method: "DELETE",
       }),
+      invalidatesTags: ["AdminBookings"],
     }),
   }),
 });

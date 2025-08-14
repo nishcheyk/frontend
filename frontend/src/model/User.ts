@@ -1,4 +1,3 @@
-// User.ts
 import { Model } from "@nozbe/watermelondb";
 import { field, children } from "@nozbe/watermelondb/decorators";
 import Booking from "./Booking";

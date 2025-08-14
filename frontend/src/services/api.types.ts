@@ -1,6 +1,6 @@
 // src/services/api.types.ts
 
-// ===== AUTH =====
+/** ===== AUTH ===== */
 export type RegisterData = {
   name: string;
   email: string;
@@ -12,10 +12,18 @@ export type LoginData = {
   password: string;
 };
 
-// ===== EVENTS =====
-export type EventType = {
+export type AuthUser = {
   id: string;
   name: string;
+  email: string;
+  phone?: string;
+  isAdmin: boolean;
+};
+
+/** ===== EVENTS ===== */
+export type EventType = {
+  id: string;
+  name: string; // mapped from title for compatibility
   title: string;
   description: string;
   date: string;
@@ -34,14 +42,25 @@ export type CreateEventData = {
   location: string;
 };
 
-// ===== BOOKINGS =====
+/** ===== BOOKINGS ===== */
 export type BookingData = {
   eventId: string;
-  seatNumber: number;
-  seatCategory: "diamond" | "premium" | "silver";
+  // Multi-seat booking support
+  seatNumbers: number[];
+  seatCategories: ("diamond" | "premium" | "silver")[];
   phone: string;
   userId: string;
+  name: string; // send from EventDetails after login
   email: string;
+};
+
+// Backwards compatibility
+export type SingleBookingData = Omit<
+  BookingData,
+  "seatNumbers" | "seatCategories"
+> & {
+  seatNumber: number;
+  seatCategory: "diamond" | "premium" | "silver";
 };
 
 export type UserBookedEvent = {
@@ -53,9 +72,16 @@ export type UserBookedEvent = {
   bookedSeats: number[];
   location: string;
   imageUrl?: string;
+
+  // Multi-seat arrays
   seatNumbers: number[];
   seatCategories: ("diamond" | "premium" | "silver")[];
   qrCodes?: string[];
+
+  // Single-seat fallbacks
+  seatNumber?: number;
+  seatCategory?: "diamond" | "premium" | "silver";
+  qrCode?: string;
 };
 
 export type GetUserBookedEventsResponse = {
@@ -64,25 +90,44 @@ export type GetUserBookedEventsResponse = {
   events: UserBookedEvent[];
 };
 
-// ===== ADMIN =====
+/** ===== ADMIN ===== */
 export type AdminBooking = {
   bookingId: string;
+  ticketNumber?: string;
   status: string;
-  seatNumber: number;
-  seatCategory: "diamond" | "premium" | "silver";
+
+  // Multi-seat arrays
+  seatNumbers: number[];
+  seatCategories: ("diamond" | "premium" | "silver")[];
+  qrCodes?: string[];
+
+  // Single-seat fallbacks
+  seatNumber?: number;
+  seatCategory?: "diamond" | "premium" | "silver";
   qrCode?: string;
+
   user: {
     _id: string;
     name: string;
     email: string;
     phone?: string;
+    isAdmin?: boolean;
   } | null;
+
   event: {
     _id: string;
     title: string;
     description: string;
     date: string;
     location: string;
+    totalSeats?: number;
+    bookedSeats?: number[];
     imageUrl?: string;
   } | null;
+};
+
+export type GetAllBookingsWithUserAndEventResponse = {
+  success: boolean;
+  count: number;
+  bookings: AdminBooking[];
 };

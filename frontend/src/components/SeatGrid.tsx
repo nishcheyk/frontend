@@ -10,7 +10,7 @@ interface CategoryRange {
 interface SeatGridProps {
   totalSeats: number;
   bookedSeats: number[];
-  selectedSeat: number | null;
+  selectedSeats: number[];
   onSeatClick: (seatNumber: number) => void;
   categories: {
     diamond: CategoryRange;
@@ -22,7 +22,7 @@ interface SeatGridProps {
 export const SeatGrid: React.FC<SeatGridProps> = ({
   totalSeats,
   bookedSeats,
-  selectedSeat,
+  selectedSeats,
   onSeatClick,
   categories,
 }) => {
@@ -67,7 +67,7 @@ export const SeatGrid: React.FC<SeatGridProps> = ({
         const category = getCategory(seat);
         const gradient = getBaseGradient(category);
         const isBooked = bookedSeats.includes(seat);
-        const isSelected = seat === selectedSeat;
+        const isSelected = selectedSeats.includes(seat); // ✅ array check
 
         return (
           <motion.div
@@ -75,7 +75,7 @@ export const SeatGrid: React.FC<SeatGridProps> = ({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.15 }}
-            whileHover={!isBooked ? { scale: 1.4 } : {}}
+            whileHover={!isBooked ? { scale: 1.15 } : {}}
             whileTap={!isBooked ? { scale: 0.95 } : {}}
             style={{
               cursor: isBooked ? "not-allowed" : "pointer",
@@ -100,7 +100,6 @@ export const SeatGrid: React.FC<SeatGridProps> = ({
                 boxShadow: isSelected
                   ? "0 0 8px rgba(255,120,78,0.9)"
                   : "inset 0 -2px 3px rgba(0,0,0,0.25)",
-                transition: "box-shadow 0.1s linear",
               }}
             />
             <div

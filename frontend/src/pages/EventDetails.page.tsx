@@ -22,11 +22,10 @@ export const EventDetails: React.FC = () => {
     isError,
     refetch,
   } = useGetEventQuery(id!, { skip: !id });
-
   const [bookEvent, { isLoading: bookingLoading }] = useBookEventMutation();
 
   const [phone, setPhone] = useState("");
-  const [selectedSeat, setSelectedSeat] = useState<number | null>(null);
+  const [selectedSeats, setSelectedSeats] = useState<number[]>([]); // ✅ Array now
   const [showPayment, setShowPayment] = useState(false);
 
   const totalSeats = eventData?.totalSeats ?? 0;
@@ -69,30 +68,37 @@ export const EventDetails: React.FC = () => {
     [categories]
   );
 
+  // ✅ Toggle seat selection in array
   const handleSeatClick = (seatNumber: number) => {
     if (eventData?.bookedSeats.includes(seatNumber)) return;
-    setSelectedSeat(seatNumber);
+    setSelectedSeats((prev) =>
+      prev.includes(seatNumber)
+        ? prev.filter((seat) => seat !== seatNumber)
+        : [...prev, seatNumber]
+    );
   };
 
   const handleShowPayment = () => {
     if (!token) return toast.error("Please log in first.");
-    if (!selectedSeat) return toast.error("Please select a seat.");
+    if (selectedSeats.length === 0)
+      return toast.error("Please select at least 1 seat.");
     if (!user) return toast.error("User info missing.");
     if (!phone) return toast.error("Please enter a valid phone number.");
-    setShowPayment(true);
+    confirmBooking();
   };
 
   const confirmBooking = async () => {
-    if (!eventData || !selectedSeat || !user || !token) return;
+    if (!eventData || selectedSeats.length === 0 || !user || !token) return;
+    const seatCategories = selectedSeats.map((seat) => getSeatCategory(seat));
 
-    const seatCategory = getSeatCategory(selectedSeat);
     try {
       const result: any = await bookEvent({
         userId: user.id,
+        name: user.name,
         email: user.email,
         phone,
-        seatNumber: selectedSeat,
-        seatCategory,
+        seatNumbers: selectedSeats,
+        seatCategories,
         eventId: id!,
       }).unwrap();
 
@@ -103,7 +109,7 @@ export const EventDetails: React.FC = () => {
 
       toast.success("🎉 Booking successful!");
       refetch();
-      setSelectedSeat(null);
+      setSelectedSeats([]);
       setPhone("");
       setShowPayment(false);
     } catch (err: any) {
@@ -111,8 +117,10 @@ export const EventDetails: React.FC = () => {
     }
   };
 
-  const currentCategory = selectedSeat ? getSeatCategory(selectedSeat) : null;
-  const seatPrice = currentCategory ? categoryPrices[currentCategory] : 0;
+  const totalPrice = selectedSeats.reduce(
+    (sum, seat) => sum + categoryPrices[getSeatCategory(seat)],
+    0
+  );
 
   if (isLoading) return <EventDetailsSkeleton />;
   if (isError) return <div style={{ color: "red" }}>Failed to load event</div>;
@@ -144,45 +152,41 @@ export const EventDetails: React.FC = () => {
 
         <PhoneNumberField value={phone} onChange={setPhone} />
 
-        <h3 style={{ margin: "1rem 0", color: "#f5f5f5" }}>Select Your Seat</h3>
+        <h3 style={{ margin: "1rem 0", color: "#f5f5f5" }}>
+          Select Your Seats
+        </h3>
 
         <SeatGrid
           totalSeats={eventData.totalSeats}
           bookedSeats={eventData.bookedSeats}
-          selectedSeat={selectedSeat}
+          selectedSeats={selectedSeats} // ✅ pass array
           onSeatClick={handleSeatClick}
           categories={categories}
         />
 
         {!showPayment ? (
           <BookButton
-            disabled={!selectedSeat || !phone || bookingLoading}
+            disabled={selectedSeats.length === 0 || !phone || bookingLoading}
             onClick={handleShowPayment}
           />
         ) : (
           <div>
             <p style={{ margin: "0.5rem 0" }}>
-              Pay ₹{seatPrice} for {currentCategory?.toUpperCase()} seat #
-              {selectedSeat}
+              Pay ₹{totalPrice} for seats #{selectedSeats.join(", ")}
             </p>
             <PayPalScriptProvider
               options={{ clientId: "test", currency: "USD" }}
             >
               <PayPalButtons
                 style={{ layout: "vertical" }}
-                createOrder={(_, actions) => {
-                  return actions.order!.create({
+                createOrder={(_, actions) =>
+                  actions.order!.create({
                     intent: "CAPTURE",
                     purchase_units: [
-                      {
-                        amount: {
-                          currency_code: "USD",
-                          value: (seatPrice / 80).toFixed(2),
-                        },
-                      },
+                      { amount: { value: (totalPrice / 80).toFixed(2) } },
                     ],
-                  });
-                }}
+                  })
+                }
                 onApprove={async (_, actions) => {
                   await actions.order!.capture();
                   confirmBooking();

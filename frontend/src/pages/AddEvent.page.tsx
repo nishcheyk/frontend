@@ -28,7 +28,6 @@ const AddEventPage: React.FC = () => {
   const [locationQuery, setLocationQuery] = useState("");
   const [locationSuggestions, setLocationSuggestions] = useState<string[]>([]);
 
-  // 🌍 Location autocomplete
   useEffect(() => {
     let isMounted = true;
 
@@ -64,7 +63,7 @@ const AddEventPage: React.FC = () => {
       }
     };
 
-    // ✅ Fixed debounce timing: 300ms
+ 
     const debounce = setTimeout(fetchSuggestions, 300);
 
     return () => {
@@ -98,8 +97,8 @@ const AddEventPage: React.FC = () => {
     }
 
     try {
-      await addEvent(form).unwrap(); // ✅ RTK Query mutation trigger
-      toast.success("🎉 Event created successfully!");
+      await addEvent(form).unwrap(); 
+      toast.success(" Event created successfully!");
       navigate("/events");
     } catch (err: any) {
       toast.error(

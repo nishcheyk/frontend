@@ -38,7 +38,7 @@ export const TicketCard: React.FC<TicketCardProps> = ({
   eventTitle,
   eventDate,
   eventLocation,
-  seatNumbers,
+  seatNumbers = [],
   seatCategories = [],
   imageUrl,
   qrCodes = [],

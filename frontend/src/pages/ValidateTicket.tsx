@@ -2,83 +2,96 @@ import React, { useState, useCallback, useRef } from "react";
 import { useAuth } from "../store/AuthContext";
 import QrScanner from "qr-scanner";
 import { toast } from "react-hot-toast";
-import { useValidateTicketMutation } from "../services/api"; // RTK Query mutation hook
+import { useValidateTicketMutation } from "../services/api";
+import { TicketCard } from "../components/TicketCard";
 
 export const ValidateTicket = () => {
   const { token } = useAuth();
   const [qrData, setQrData] = useState("");
+  const [lastUploadedBase64, setLastUploadedBase64] = useState<string | null>(
+    null
+  );
   const [result, setResult] = useState("");
+  const [ticketInfo, setTicketInfo] = useState<any>(null);
   const [dragOver, setDragOver] = useState(false);
   const [validateTicket, { isLoading }] = useValidateTicketMutation();
-
-  // Ref for hidden file input to trigger on click
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
 
   const validate = async () => {
     if (!token) {
       toast.error("Login required");
       return;
     }
-    if (!qrData.trim()) {
-      toast.error("Please enter or scan a valid QR code");
+    if (!qrData.trim() && !lastUploadedBase64) {
+      toast.error("Enter QR text or upload an image");
       return;
     }
+
+    const payload: any = {};
+    if (qrData.trim()) payload.qrData = qrData.trim();
+    if (lastUploadedBase64) payload.qrImageBase64 = lastUploadedBase64;
+
     try {
-      const data = await validateTicket({ qrData: qrData.trim() }).unwrap();
+      const data = await validateTicket(payload).unwrap();
+
       setResult(data.valid ? "Ticket Valid" : data.message || "Ticket Invalid");
+
       if (data.valid) {
         toast.success("Ticket is valid!");
+        setTicketInfo(data.ticket);
       } else {
         toast.error(data.message || "Ticket is invalid");
+        setTicketInfo(null);
       }
     } catch (error: any) {
-      toast.error(error.message || "Validation failed");
+      console.error(" Validation API error:", error);
+      toast.error(
+        error?.data?.message || error.message || "Validation request failed"
+      );
+      setTicketInfo(null);
     }
   };
 
   const handleFile = useCallback(async (file: File) => {
     if (!file.type.startsWith("image/")) {
-      toast.error("Please upload a valid image file containing a QR code.");
+      toast.error("Please upload a valid image file.");
       return;
     }
     try {
+      const base64 = await fileToBase64(file);
+      setLastUploadedBase64(base64);
+
       const text = await QrScanner.scanImage(file);
-      setQrData(text);
-      setResult(""); // Clear previous validation result if any
-    } catch {
-      toast.error("Could not read a QR code from the image.");
+      if (text) {
+        setQrData(text.trim());
+      } else {
+        toast.error("QR code could not be read");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Could not read QR code");
     }
   }, []);
 
   const onDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setDragOver(false);
-    const file = e.dataTransfer.files[0];
-    if (file) handleFile(file);
-  };
-
-  const onDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setDragOver(true);
-  };
-
-  const onDragLeave = () => {
-    setDragOver(false);
-  };
-
-  const onClickDropZone = () => {
-    fileInputRef.current?.click();
-  };
-
-  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files?.[0]) {
-      handleFile(e.target.files[0]);
-    }
+    if (e.dataTransfer.files?.[0]) handleFile(e.dataTransfer.files[0]);
   };
 
   return (
-    <div className="validate-container">
-      <style>{`
+    <>
+      <div className="validate-container">
+        <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700&family=Inter:wght@400;600&display=swap');
 
         .validate-container {
@@ -188,47 +201,61 @@ export const ValidateTicket = () => {
         }
       `}</style>
 
-      <h3>Validate Ticket</h3>
-
-      <input
-        placeholder="Enter or scan QR code"
-        value={qrData}
-        onChange={(e) => setQrData(e.target.value)}
-        disabled={isLoading}
-      />
-
-      <div
-        className={`drop-zone ${dragOver ? "drag-over" : ""}`}
-        onDrop={onDrop}
-        onDragOver={onDragOver}
-        onDragLeave={onDragLeave}
-        onClick={onClickDropZone}
-        role="button"
-        tabIndex={0}
-        onKeyPress={(e) => {
-          if (e.key === "Enter" || e.key === " ") onClickDropZone();
-        }}
-      >
-        Drag & drop QR code image here or click to upload
         <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          style={{ display: "none" }}
-          onChange={onFileChange}
+          placeholder="Enter or scan QR code text"
+          value={qrData}
+          onChange={(e) => setQrData(e.target.value)}
           disabled={isLoading}
         />
+
+        <div
+          className={`drop-zone ${dragOver ? "drag-over" : ""}`}
+          onDrop={onDrop}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          Drag & drop QR image or click to upload
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            style={{ display: "none" }}
+            onChange={(e) =>
+              e.target.files?.[0] && handleFile(e.target.files[0])
+            }
+          />
+        </div>
+
+        <button onClick={validate} disabled={isLoading}>
+          {isLoading ? "Validating..." : "Validate"}
+        </button>
+
+        {result && (
+          <p
+            className={result.startsWith("Ticket Valid") ? "success" : "error"}
+          >
+            {result}
+          </p>
+        )}
       </div>
 
-      <button onClick={validate} disabled={isLoading}>
-        {isLoading ? "Validating..." : "Validate"}
-      </button>
-
-      {result && (
-        <p className={result.startsWith("Ticket Valid") ? "success" : "error"}>
-          {result}
-        </p>
+      {ticketInfo && (
+        <div
+          style={{
+            maxWidth: 880,
+            margin: "32px auto",
+            backgroundColor: "#211f1f",
+            padding: 32,
+            borderRadius: 20,
+          }}
+        >
+          <TicketCard {...ticketInfo} />
+        </div>
       )}
-    </div>
+    </>
   );
 };
